@@ -4,16 +4,19 @@ import mysql.connector
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from collections import deque
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Замените значения переменных на ваши настройки
-MYSQL_HOST = ""
-MYSQL_PORT = 33061  # или другой порт, если отличается
-MYSQL_USER = ""
-MYSQL_PASSWORD = ""
-MYSQL_DB_NAME = ""
+MYSQL_HOST = os.environ["MYSQL_HOST"]
+MYSQL_PORT = int(os.environ["MYSQL_PORT"])  # Преобразовать значение порта в int
+MYSQL_USER = os.environ["MYSQL_USER"]
+MYSQL_PASSWORD = os.environ["MYSQL_PASSWORD"]
+MYSQL_DB_NAME = os.environ["MYSQL_DB_NAME"]
 
-SLACK_BOT_TOKEN = ""
-SLACK_CHANNEL_ID = ""
+SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
+SLACK_CHANNEL_ID = os.environ["SLACK_CHANNEL_ID"]
 
 # Создание подключения к базе данных
 def create_db_connection():
