@@ -3,7 +3,6 @@ import time
 import mysql.connector
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from collections import deque
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -63,25 +62,21 @@ def send_slack_message(transaction):
     except SlackApiError as e:
         print(f"Error sending message: {e}")
 
-def update_slack_message(transaction, ts):
-    message_template = f"""*Merchant Cashout*
-
-:date:  *Created*: {transaction['created_at']}
-:link:  *Transaction ID*: {transaction['id']}
-:man_in_tuxedo:  *Merchant*: <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects|Joy Casino>
-:slot_machine:  *Project*: <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/project/{transaction['project_id']}/settings/details|Joy Casino Project>
-:money_with_wings:  *Amount*:  {transaction['amount']} {transaction['currency_network']}
-
-{get_status_text(transaction['status'])}
+def update_slack_message(transaction, ts, conn):
+    merchant_name = get_merchant_name(transaction['owner_merchant_id'], conn)
+    message_template = f"""
+Status update for Transaction link: {transaction['id']}
+Status: {get_status_text(transaction['status'])}
 """
     try:
-        slack_client.chat_update(
+        slack_client.chat_postMessage(
             channel=SLACK_CHANNEL_ID,
-            ts=ts,
+            thread_ts=ts,
             text=message_template
         )
     except SlackApiError as e:
         print(f"Error updating message: {e}")
+
 
 def get_current_last_id():
     conn = create_db_connection()
@@ -131,7 +126,7 @@ def monitor_transactions():
             row = cursor.fetchone()
 
             if row:
-                update_slack_message(row, ts)
+                update_slack_message(row, ts, conn)
 
         cursor.close()
         conn.close()
