@@ -74,9 +74,9 @@ def update_slack_message(transaction, ts):
 {get_status_text(transaction['status'])}
 """
     try:
-        slack_client.chat_update(
+        slack_client.chat_postMessage(
             channel=SLACK_CHANNEL_ID,
-            ts=ts,
+            thread_ts=ts,
             text=message_template
         )
     except SlackApiError as e:
