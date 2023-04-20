@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Замените значения переменных на ваши настройки
 MYSQL_HOST = os.environ["MYSQL_HOST"]
-MYSQL_PORT = int(os.environ["MYSQL_PORT"])
+MYSQL_PORT = int(os.environ["MYSQL_PORT"])  # Преобразовать значение порта в int
 MYSQL_USER = os.environ["MYSQL_USER"]
 MYSQL_PASSWORD = os.environ["MYSQL_PASSWORD"]
 MYSQL_DB_NAME = os.environ["MYSQL_DB_NAME"]
@@ -16,6 +17,7 @@ MYSQL_DB_NAME = os.environ["MYSQL_DB_NAME"]
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_CHANNEL_ID = os.environ["SLACK_CHANNEL_ID"]
 
+# Создание подключения к базе данных
 def create_db_connection():
     return mysql.connector.connect(
         host=MYSQL_HOST,
@@ -25,6 +27,7 @@ def create_db_connection():
         database=MYSQL_DB_NAME,
     )
 
+# Создание клиента Slack API
 slack_client = WebClient(token=SLACK_BOT_TOKEN)
 
 def get_status_text(status):
@@ -39,13 +42,14 @@ def get_status_text(status):
     else:
         return status
 
-def send_slack_message(transaction, conn):
+def send_slack_message(transaction):
     message_template = f"""*Merchant Cashout*
-:date: Created: {transaction['created_at']}
-:link: Transaction link: {transaction['id']}
-:man_in_tuxedo: Merchant: {transaction['owner_merchant_id']}
-:slot_machine: Project: {transaction['project_id']}
-:money_with_wings: Amount:  {transaction['amount']} {transaction['currency_name']}
+
+:date:  *Created*: {transaction['created_at']}
+:link:  *Transaction ID*: {transaction['id']}
+:man_in_tuxedo:  *Merchant*: {transaction['owner_merchant_id']}
+:slot_machine:  *Project*: {transaction['owner_merchant_id']}/project/{transaction['project_id']}
+:money_with_wings:  *Amount*:  {transaction['amount']} {transaction['currency_network']}
 
 {get_status_text(transaction['status'])}
 """
@@ -58,13 +62,14 @@ def send_slack_message(transaction, conn):
     except SlackApiError as e:
         print(f"Error sending message: {e}")
 
-def update_slack_message(transaction, ts, conn):
+def update_slack_message(transaction, ts):
     message_template = f"""*Merchant Cashout*
-:date: Created: {transaction['created_at']}
-:link: Transaction link: {transaction['id']}
-:man_in_tuxedo: Merchant: {transaction['owner_merchant_id']}
-:slot_machine: Project: {transaction['project_id']}
-:money_with_wings: Amount:  {transaction['amount']} {transaction['currency_name']}
+
+:date:  *Created*: {transaction['created_at']}
+:link:  *Transaction ID*: {transaction['id']}
+:man_in_tuxedo:  *Merchant*: {transaction['owner_merchant_id']}
+:slot_machine:  *Project*: {transaction['owner_merchant_id']}
+:money_with_wings:  *Amount*:  {transaction['amount']} {transaction['currency_network']}
 
 {get_status_text(transaction['status'])}
 """
@@ -109,21 +114,28 @@ def monitor_transactions():
         result = cursor.fetchall()
 
         for row in result:
-          if last_processed_id is None or row['id'] > last_processed_id:
-              ts = send_slack_message(row, conn)
-              message_ts_map[row['id']] = ts
-          else:
-              ts = message_ts_map.get(row['id'])
-              if ts:
-                  update_slack_message(row, ts, conn)
+            if row['id'] not in message_ts_map:
+                ts = send_slack_message(row)
+                message_ts_map[row['id']] = ts
+                last_processed_id = row['id']
+            else:
+                ts = message_ts_map.get(row['id'])
+                if ts:
+                    update_slack_message(row, ts)
 
-        if result:
-            last_processed_id = max(row['id'] for row in result)
+        # Добавим код для проверки статусов сообщений, отправленных после запуска бота
+        for transaction_id, ts in message_ts_map.items():
+            query = f"SELECT * FROM project_withdrawal_crypto_transactions WHERE id = {transaction_id}"
+            cursor.execute(query)
+            row = cursor.fetchone()
+
+            if row:
+                update_slack_message(row, ts)
 
         cursor.close()
         conn.close()
-        time.sleep(5)  # Check for new transactions every minute
+
+        time.sleep(5)
 
 if __name__ == "__main__":
     monitor_transactions()
-
