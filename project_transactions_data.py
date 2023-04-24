@@ -35,5 +35,4 @@ def get_project_transactions_data():
     conn.close()
 
     return transactions
-
-    time.sleep(5)
+    

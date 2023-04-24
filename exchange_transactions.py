@@ -1,3 +1,4 @@
+import sys
 import os
 import time
 import mysql.connector
@@ -5,7 +6,6 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from dotenv import load_dotenv
 from merchants_data import get_merchants_data
-from project_transactions_data import get_project_transactions_data
 
 load_dotenv()
 previous_statuses = {}
@@ -34,7 +34,7 @@ def get_status_text(status):
     if status == 'in_progress':
         return ':large_yellow_circle: Transaction in progress'
     elif status == 'success':
-        return ':large_green_circle: Transaction success\n'
+        return ':large_green_circle: Transaction success'
     elif status == 'rejected':
         return ':red_circle: Transaction decline'
     elif status == 'pending':
@@ -42,11 +42,12 @@ def get_status_text(status):
     else:
         return status
 
-def send_slack_message(transaction, project_name, merchant_name, real_transaction_id):
-    message_template = f""">*Manual Cashout*
+def send_slack_message(transaction, project_name, merchant_name):
+    message_template = f""">*Exchange*
 :man_in_tuxedo: <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects|{merchant_name}> | <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects/{transaction['project_id']}/settings/details|{project_name}>
-:link: <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/project/{transaction['project_id']}/transaction/details/{real_transaction_id}/crypto/withdrawal|Transaction #{real_transaction_id}>
-:money_with_wings: -{transaction['amount']} {transaction['currency_network']}
+:currency_exchange: {transaction['amount_from']} {transaction['currency_from']} -> {transaction['amount_to']} {transaction['currency_to']}
+:chart_with_upwards_trend: Rate: {transaction['rate']}
+:money_with_wings: Fee: {transaction['fee_exchange']} {transaction['currency_to']}
 
 {get_status_text(transaction['status'])}
 """
@@ -62,13 +63,6 @@ def send_slack_message(transaction, project_name, merchant_name, real_transactio
 def post_status_in_thread(transaction, ts):
     status_text = get_status_text(transaction['status'])
 
-    # Добавить хэш транзакции в текст сообщения, если статус равен "success" + ссылка на блокчейн обозреватель.
-    if transaction['status'] == 'success':
-        if transaction['currency_network'] == 'trx':
-          status_text += f"\nhttps://tronscan.org/#/transaction/{transaction['hash_transaction']}"
-        elif transaction['currency_network'] == 'eth':
-            status_text += f"\nhttps://etherscan.io/tx/{transaction['hash_transaction']}"
-
     try:
         slack_client.chat_postMessage(
             channel=SLACK_CHANNEL_ID,
@@ -77,7 +71,6 @@ def post_status_in_thread(transaction, ts):
         )
     except SlackApiError as e:
         print(f"Error posting status in thread: {e}")
-
 
 def update_slack_message(transaction, ts):
     current_status = transaction["status"]
@@ -93,7 +86,7 @@ def get_current_last_id():
     conn = create_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    query = "SELECT id FROM project_withdrawal_crypto_transactions ORDER BY id DESC LIMIT 1"
+    query = "SELECT id FROM project_exchange_transactions ORDER BY id DESC LIMIT 1"
     cursor.execute(query)
     result = cursor.fetchone()
 
@@ -113,7 +106,7 @@ def monitor_transactions():
         conn = create_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        query = "SELECT * FROM project_withdrawal_crypto_transactions"
+        query = "SELECT * FROM project_exchange_transactions"
         if last_processed_id:
             query += f" WHERE id > {last_processed_id}"
         query += " ORDER BY id DESC"
@@ -122,38 +115,24 @@ def monitor_transactions():
         result = cursor.fetchall()
 
         for row in result:
-            project_transactions_data = get_project_transactions_data()
             merchant_name = merchants.get(row['owner_merchant_id'], 'Unknown')
             project_query = f"SELECT name FROM projects WHERE id = {row['project_id']}"
             cursor.execute(project_query)
             project = cursor.fetchone()
             project_name = project['name'] if project else 'Unknown'
 
-            real_transaction_id = None
-            for transaction in project_transactions_data:
-                if (
-                    transaction["amount"] == row["amount"]
-                    and transaction["owner_merchant_id"] == row["owner_merchant_id"]
-                    and transaction["created_at"] == row["created_at"]
-                ):
-                    real_transaction_id = transaction["id"]
-                    break
+            ts = send_slack_message(row, project_name, merchant_name)
 
-            if real_transaction_id is None:
-                print(f"Warning: Real transaction ID not found for withdrawal transaction ID {row['id']}")
+            if row['id'] not in message_ts_map:
+                message_ts_map[row['id']] = ts
+                last_processed_id = row['id']
             else:
-                ts = send_slack_message(row, project_name, merchant_name, real_transaction_id)
-
-                if row['id'] not in message_ts_map:
-                    message_ts_map[row['id']] = ts
-                    last_processed_id = row['id']
-                else:
-                    ts = message_ts_map.get(row['id'])
-                    if ts:
-                        update_slack_message(row, ts)
+                ts = message_ts_map.get(row['id'])
+                if ts:
+                    update_slack_message(row, ts)
 
         for transaction_id, ts in message_ts_map.items():
-            query = f"SELECT * FROM project_withdrawal_crypto_transactions WHERE id = {transaction_id}"
+            query = f"SELECT * FROM project_exchange_transactions WHERE id = {transaction_id}"
             cursor.execute(query)
             row = cursor.fetchone()
 
@@ -167,4 +146,3 @@ def monitor_transactions():
 
 if __name__ == "__main__":
     monitor_transactions()
-
