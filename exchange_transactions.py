@@ -45,7 +45,7 @@ def get_status_text(status):
 def send_slack_message(transaction, project_name, merchant_name):
     message_template = f""">*Exchange*
 :man_in_tuxedo: <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects|{merchant_name}> | <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects/{transaction['project_id']}/settings/details|{project_name}>
-:currency_exchange: {transaction['amount_from']} {transaction['currency_from']} -> {transaction['amount_to']} {transaction['currency_to']}
+:currency_exchange: {transaction['amount_from']} {transaction['currency_from'].upper()} -> {transaction['amount_to']} {transaction['currency_to'].upper()}
 :chart_with_upwards_trend: Rate: {transaction['rate']}
 :money_with_wings: Fee: {transaction['fee_exchange']} {transaction['currency_to']}
 

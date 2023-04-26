@@ -67,7 +67,7 @@ def send_slack_message(transaction, project_name, merchant_name, real_transactio
                    f":money_with_wings: Amount: {amount} {currency_name}\n" \
                    f":name_badge: Risk Score: {risk_score}\n" \
                    f"\n" \
-                   f"<https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/project/{transaction['project_id']}/transaction/details/{real_transaction_id}/crypto/withdrawal|Transaction #{real_transaction_id}>\n" \
+                   f"<https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/project/{transaction['project_id']}/transaction/details/{real_transaction_id}/crypto/deposit|Transaction #{real_transaction_id}>\n" \
                    f"\n" \
                    f"{status_text}\n"
 
