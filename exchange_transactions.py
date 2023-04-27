@@ -1,10 +1,11 @@
-import sys
 import os
 import time
+
 import mysql.connector
+from dotenv import load_dotenv
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from dotenv import load_dotenv
+
 from merchants_data import get_merchants_data
 
 load_dotenv()
@@ -18,6 +19,19 @@ MYSQL_DB_NAME = os.environ["MYSQL_DB_NAME"]
 
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_CHANNEL_ID = os.environ["SLACK_CHANNEL_ID"]
+
+currency_decimal_places = {
+    'TRX': 2,
+    'ETH': 6,
+    'BTC': 7,
+    'DOGE': 2,
+    'USDT': 2,
+    'USDC': 2,
+}
+
+def format_amount(amount, currency):
+    decimal_places = currency_decimal_places.get(currency.upper(), 2)
+    return f"{amount:.{decimal_places}f}"
 
 def create_db_connection():
     return mysql.connector.connect(
@@ -43,11 +57,14 @@ def get_status_text(status):
         return status
 
 def send_slack_message(transaction, project_name, merchant_name):
+    amount_from_formatted = format_amount(transaction['amount_from'], transaction['currency_from'])
+    amount_to_formatted = format_amount(transaction['amount_to'], transaction['currency_to'])
+
     message_template = f""">*Exchange*
 :man_in_tuxedo: <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects|{merchant_name}> | <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects/{transaction['project_id']}/settings/details|{project_name}>
-:currency_exchange: {transaction['amount_from']} {transaction['currency_from'].upper()} -> {transaction['amount_to']} {transaction['currency_to'].upper()}
+:currency_exchange: {amount_from_formatted} {transaction['currency_from'].upper()} -> {amount_to_formatted} {transaction['currency_to'].upper()}
 :chart_with_upwards_trend: Rate: {transaction['rate']}
-:money_with_wings: Fee: {transaction['fee_exchange']} {transaction['currency_to']}
+:money_with_wings: Fee: {transaction['fee_exchange']} {transaction['currency_from'].upper()}
 
 {get_status_text(transaction['status'])}
 """
@@ -146,3 +163,4 @@ def monitor_transactions():
 
 if __name__ == "__main__":
     monitor_transactions()
+

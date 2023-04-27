@@ -9,6 +9,7 @@ from slack_sdk.errors import SlackApiError
 from merchants_data import get_merchants_data
 from project_transactions_data import get_project_transactions_data
 
+
 load_dotenv()
 previous_statuses = {}
 

@@ -1,9 +1,11 @@
 import os
 import time
+
 import mysql.connector
+from dotenv import load_dotenv
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from dotenv import load_dotenv
+
 from merchants_data import get_merchants_data
 from project_transactions_data import get_project_transactions_data
 
@@ -43,7 +45,7 @@ def get_status_text(status):
         return status
 
 def send_slack_message(transaction, project_name, merchant_name, real_transaction_id):
-    message_template = f""">*Manual Cashout*
+    message_template = f""">*ManualCashout*
 :man_in_tuxedo: <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects|{merchant_name}> | <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/projects/{transaction['project_id']}/settings/details|{project_name}>
 :link: <https://cryptoprocessing-stage.corp.merehead.xyz/merchant/{transaction['owner_merchant_id']}/project/{transaction['project_id']}/transaction/details/{real_transaction_id}/crypto/withdrawal|Transaction #{real_transaction_id}>
 :money_with_wings: -{transaction['amount']} {transaction['currency_network']}
